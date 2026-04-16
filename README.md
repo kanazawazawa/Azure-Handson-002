@@ -213,3 +213,4 @@ cd Azure-Handson-002
 az group delete --name rg-handson-v4 --yes --no-wait
 ```
 
+# test
