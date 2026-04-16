@@ -212,3 +212,4 @@ cd Azure-Handson-002
 # リソースグループごと削除
 az group delete --name rg-handson-v4 --yes --no-wait
 ```
+
