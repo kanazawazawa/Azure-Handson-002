@@ -1,0 +1,14 @@
+{
+  "networking": {
+    "allowedIpRanges": ["10.0.0.0/24"]
+  },
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous", "authenticated"]
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  }
+}

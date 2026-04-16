@@ -1,0 +1,735 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "16150122786703057590"
+    }
+  },
+  "parameters": {
+    "prefix": {
+      "type": "string",
+      "metadata": {
+        "description": "リソース名のプレフィックス (一意の文字列)"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "japaneast",
+      "metadata": {
+        "description": "リソースのロケーション (要件: 日本国内リージョン)"
+      }
+    },
+    "env": {
+      "type": "string",
+      "defaultValue": "dev",
+      "allowedValues": [
+        "dev",
+        "test",
+        "prod"
+      ],
+      "metadata": {
+        "description": "環境名 (要件: 本番/テスト/開発環境を明確に分離)"
+      }
+    },
+    "deployAppGateway": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Application Gateway (WAF) をデプロイするか"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-network",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "env": {
+            "value": "[parameters('env')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "14608015972869074322"
+            }
+          },
+          "parameters": {
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "リソース名のプレフィックス"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "リソースのロケーション (要件: 日本国内リージョン)"
+              }
+            },
+            "env": {
+              "type": "string",
+              "allowedValues": [
+                "dev",
+                "test",
+                "prod"
+              ],
+              "metadata": {
+                "description": "環境名 (dev/test/prod)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('nsg-{0}-app-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowHTTPS",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('nsg-{0}-data-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "AllowAppSubnet",
+                    "properties": {
+                      "priority": 100,
+                      "direction": "Inbound",
+                      "access": "Allow",
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "5432",
+                      "sourceAddressPrefix": "10.0.1.0/24",
+                      "destinationAddressPrefix": "*"
+                    }
+                  },
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2024-01-01",
+              "name": "[format('nsg-{0}-mgmt-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "DenyAllInbound",
+                    "properties": {
+                      "priority": 4096,
+                      "direction": "Inbound",
+                      "access": "Deny",
+                      "protocol": "*",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2024-01-01",
+              "name": "[format('vnet-{0}-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "10.0.0.0/16"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "snet-appgw",
+                    "properties": {
+                      "addressPrefix": "10.0.0.0/24"
+                    }
+                  },
+                  {
+                    "name": "snet-app",
+                    "properties": {
+                      "addressPrefix": "10.0.1.0/24",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-app-{1}', parameters('prefix'), parameters('env')))]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "snet-data",
+                    "properties": {
+                      "addressPrefix": "10.0.2.0/24",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-data-{1}', parameters('prefix'), parameters('env')))]"
+                      },
+                      "privateEndpointNetworkPolicies": "Enabled"
+                    }
+                  },
+                  {
+                    "name": "snet-mgmt",
+                    "properties": {
+                      "addressPrefix": "10.0.3.0/24",
+                      "networkSecurityGroup": {
+                        "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-mgmt-{1}', parameters('prefix'), parameters('env')))]"
+                      },
+                      "privateEndpointNetworkPolicies": "Enabled"
+                    }
+                  },
+                  {
+                    "name": "snet-pe",
+                    "properties": {
+                      "addressPrefix": "10.0.4.0/24",
+                      "privateEndpointNetworkPolicies": "Enabled"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-app-{1}', parameters('prefix'), parameters('env')))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-data-{1}', parameters('prefix'), parameters('env')))]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups', format('nsg-{0}-mgmt-{1}', parameters('prefix'), parameters('env')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "vnetId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-{1}', parameters('prefix'), parameters('env')))]"
+            },
+            "vnetName": {
+              "type": "string",
+              "value": "[format('vnet-{0}-{1}', parameters('prefix'), parameters('env'))]"
+            },
+            "snetAppGwId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-{1}', parameters('prefix'), parameters('env'))), '2024-01-01').subnets[0].id]"
+            },
+            "snetAppId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-{1}', parameters('prefix'), parameters('env'))), '2024-01-01').subnets[1].id]"
+            },
+            "snetDataId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-{1}', parameters('prefix'), parameters('env'))), '2024-01-01').subnets[2].id]"
+            },
+            "snetMgmtId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-{1}', parameters('prefix'), parameters('env'))), '2024-01-01').subnets[3].id]"
+            },
+            "snetPeId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('vnet-{0}-{1}', parameters('prefix'), parameters('env'))), '2024-01-01').subnets[4].id]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-monitoring",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "env": {
+            "value": "[parameters('env')]"
+          },
+          "retentionInDays": "[if(equals(parameters('env'), 'prod'), createObject('value', 730), createObject('value', 90))]"
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "16949039608243052297"
+            }
+          },
+          "parameters": {
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "リソース名のプレフィックス"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "リソースのロケーション"
+              }
+            },
+            "env": {
+              "type": "string",
+              "allowedValues": [
+                "dev",
+                "test",
+                "prod"
+              ],
+              "metadata": {
+                "description": "環境名"
+              }
+            },
+            "retentionInDays": {
+              "type": "int",
+              "defaultValue": 90,
+              "metadata": {
+                "description": "ログ保持期間 (日数)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[format('law-{0}-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": "[parameters('retentionInDays')]"
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[format('appi-{0}-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-{1}', parameters('prefix'), parameters('env')))]",
+                "RetentionInDays": "[parameters('retentionInDays')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-{1}', parameters('prefix'), parameters('env')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "logAnalyticsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-{1}', parameters('prefix'), parameters('env')))]"
+            },
+            "logAnalyticsName": {
+              "type": "string",
+              "value": "[format('law-{0}-{1}', parameters('prefix'), parameters('env'))]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', format('appi-{0}-{1}', parameters('prefix'), parameters('env')))]"
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('appi-{0}-{1}', parameters('prefix'), parameters('env'))), '2020-02-02').ConnectionString]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployAppGateway')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-appgateway",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "env": {
+            "value": "[parameters('env')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.snetAppGwId.value]"
+          },
+          "logAnalyticsId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-monitoring'), '2025-04-01').outputs.logAnalyticsId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "9450541950101933725"
+            }
+          },
+          "parameters": {
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "リソース名のプレフィックス"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "リソースのロケーション"
+              }
+            },
+            "env": {
+              "type": "string",
+              "allowedValues": [
+                "dev",
+                "test",
+                "prod"
+              ],
+              "metadata": {
+                "description": "環境名"
+              }
+            },
+            "subnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Application Gateway 用サブネットの ID"
+              }
+            },
+            "logAnalyticsId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace の ID (診断ログ送信先)"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2024-01-01",
+              "name": "[format('pip-{0}-appgw-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static"
+              }
+            },
+            {
+              "type": "Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies",
+              "apiVersion": "2024-01-01",
+              "name": "[format('wafpol-{0}-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "properties": {
+                "policySettings": {
+                  "state": "Enabled",
+                  "mode": "Prevention",
+                  "requestBodyCheck": true,
+                  "maxRequestBodySizeInKb": 128,
+                  "fileUploadLimitInMb": 100
+                },
+                "managedRules": {
+                  "managedRuleSets": [
+                    {
+                      "ruleSetType": "OWASP",
+                      "ruleSetVersion": "3.2"
+                    }
+                  ]
+                },
+                "customRules": [
+                  {
+                    "name": "RateLimitPerIP",
+                    "priority": 100,
+                    "ruleType": "RateLimitRule",
+                    "rateLimitThreshold": 100,
+                    "rateLimitDuration": "FiveMins",
+                    "action": "Block",
+                    "matchConditions": [
+                      {
+                        "matchVariables": [
+                          {
+                            "variableName": "RemoteAddr"
+                          }
+                        ],
+                        "operator": "IPMatch",
+                        "negationCondition": true,
+                        "matchValues": [
+                          "127.0.0.1"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/applicationGateways",
+              "apiVersion": "2024-01-01",
+              "name": "[format('agw-{0}-{1}', parameters('prefix'), parameters('env'))]",
+              "location": "[parameters('location')]",
+              "tags": {
+                "SecurityControl": "Ignore"
+              },
+              "properties": {
+                "sku": {
+                  "name": "WAF_v2",
+                  "tier": "WAF_v2",
+                  "capacity": 1
+                },
+                "firewallPolicy": {
+                  "id": "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', format('wafpol-{0}-{1}', parameters('prefix'), parameters('env')))]"
+                },
+                "gatewayIPConfigurations": [
+                  {
+                    "name": "appGatewayIpConfig",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      }
+                    }
+                  }
+                ],
+                "frontendIPConfigurations": [
+                  {
+                    "name": "appGwPublicFrontendIp",
+                    "properties": {
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-appgw-{1}', parameters('prefix'), parameters('env')))]"
+                      }
+                    }
+                  }
+                ],
+                "frontendPorts": [
+                  {
+                    "name": "port_80",
+                    "properties": {
+                      "port": 80
+                    }
+                  }
+                ],
+                "backendAddressPools": [
+                  {
+                    "name": "defaultBackendPool",
+                    "properties": {
+                      "backendAddresses": []
+                    }
+                  }
+                ],
+                "backendHttpSettingsCollection": [
+                  {
+                    "name": "defaultHttpSettings",
+                    "properties": {
+                      "port": 80,
+                      "protocol": "Http",
+                      "requestTimeout": 30,
+                      "pickHostNameFromBackendAddress": true
+                    }
+                  }
+                ],
+                "httpListeners": [
+                  {
+                    "name": "httpListener",
+                    "properties": {
+                      "frontendIPConfiguration": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', format('agw-{0}-{1}', parameters('prefix'), parameters('env')), 'appGwPublicFrontendIp')]"
+                      },
+                      "frontendPort": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', format('agw-{0}-{1}', parameters('prefix'), parameters('env')), 'port_80')]"
+                      },
+                      "protocol": "Http"
+                    }
+                  }
+                ],
+                "requestRoutingRules": [
+                  {
+                    "name": "defaultRoutingRule",
+                    "properties": {
+                      "priority": 100,
+                      "ruleType": "Basic",
+                      "httpListener": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', format('agw-{0}-{1}', parameters('prefix'), parameters('env')), 'httpListener')]"
+                      },
+                      "backendAddressPool": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', format('agw-{0}-{1}', parameters('prefix'), parameters('env')), 'defaultBackendPool')]"
+                      },
+                      "backendHttpSettings": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', format('agw-{0}-{1}', parameters('prefix'), parameters('env')), 'defaultHttpSettings')]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-appgw-{1}', parameters('prefix'), parameters('env')))]",
+                "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', format('wafpol-{0}-{1}', parameters('prefix'), parameters('env')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.Network/applicationGateways', format('agw-{0}-{1}', parameters('prefix'), parameters('env')))]",
+              "name": "agw-diagnostics",
+              "properties": {
+                "workspaceId": "[parameters('logAnalyticsId')]",
+                "logs": [
+                  {
+                    "category": "ApplicationGatewayAccessLog",
+                    "enabled": true
+                  },
+                  {
+                    "category": "ApplicationGatewayFirewallLog",
+                    "enabled": true
+                  },
+                  {
+                    "category": "ApplicationGatewayPerformanceLog",
+                    "enabled": true
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": true
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/applicationGateways', format('agw-{0}-{1}', parameters('prefix'), parameters('env')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "appGatewayId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/applicationGateways', format('agw-{0}-{1}', parameters('prefix'), parameters('env')))]"
+            },
+            "appGatewayName": {
+              "type": "string",
+              "value": "[format('agw-{0}-{1}', parameters('prefix'), parameters('env'))]"
+            },
+            "publicIpAddress": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', format('pip-{0}-appgw-{1}', parameters('prefix'), parameters('env'))), '2024-01-01').ipAddress]"
+            },
+            "wafPolicyName": {
+              "type": "string",
+              "value": "[format('wafpol-{0}-{1}', parameters('prefix'), parameters('env'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-monitoring')]",
+        "[resourceId('Microsoft.Resources/deployments', 'deploy-network')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "vnetName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-network'), '2025-04-01').outputs.vnetName.value]"
+    },
+    "logAnalyticsName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'deploy-monitoring'), '2025-04-01').outputs.logAnalyticsName.value]"
+    }
+  }
+}
